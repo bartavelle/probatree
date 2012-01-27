@@ -2,6 +2,7 @@ module ProbabilityTree where
 
 import Ratio
 import qualified Data.Map as Map
+import Text.PrettyPrint.HughesPJ
 
 swap (a,b) = (b,a)
 
@@ -23,3 +24,7 @@ finalStateProbability tree  | length (outcome tree) == 0 = [(curstate tree, 1%1)
         resolvedoutcomes = map (\(ct, pb) -> 
             map (\(x,y) -> (x, y*pb)) (finalStateProbability ct)
             ) (outcome tree)
+
+showProbaTree :: (cst -> Doc) -> ProbaTree cst -> Doc
+showProbaTree showstate tree = (showstate $ curstate tree) $$ (vcat $ map (\x -> (text $ show $ snd x) <+> (showProbaTree (showstate) $ fst x)) (outcome tree))
+

@@ -48,7 +48,7 @@ Library
   Exposed-modules:     ProbabilityTree
   
   -- Packages needed in order to build this package.
-  Build-depends:       base, haskell98, containers
+  Build-depends:       base, haskell98, containers, pretty
   
   -- Modules not exported by this package.
   -- Other-modules:       
