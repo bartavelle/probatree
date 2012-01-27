@@ -4,13 +4,14 @@ import Data.Bits
 import qualified Data.Map as Map
 import Debug.Trace
 import ProbabilityTree
+import Text.PrettyPrint.HughesPJ
 
 vowel = 1
 consonant = 2
 diphthong = 4
 notfirst = 8
 
-maxlen = 2
+maxlen = 8
 
 elements = [( "a",	vowel ),
 	( "ae", vowel .|. diphthong ),
@@ -101,12 +102,15 @@ pwNextState pws = newlist
         ns = Map.toList $ nextstate (stypelen $ stypes pws) (sshouldbe pws) lastelem (smaxlen pws)
         shouldbes = concatMap (sb2ns (sshouldbe pws) lastelem) ns
         allpos = sum $ map (\(x,_,_) -> x) shouldbes
-        newlist = map (\(ncnt, ntype, snextsb) -> (PwState ((stypes pws) ++ [ntype]) snextsb (smaxlen pws), (fromIntegral ncnt) % (fromIntegral allpos))) shouldbes
+        newlist = map (\(ncnt, ntype, snextsb) -> (PwState ((stypes pws) ++ [ntype]) snextsb (smaxlen pws), ncnt / allpos)) shouldbes
 
-sb2ns :: Int -> Int -> (Int,Int) -> [(Int, Int, Int)]
-sb2ns prevshouldbe lastelem (ntype, ncount) = map (\(scount, snextsb) -> (scount*ncount, ntype, snextsb)) sbs
+sb2ns :: Int -> Int -> (Int,Int) -> [(Rational, Int, Int)]
+sb2ns prevshouldbe lastelem (ntype, ncount) = map (\(a,b,c) -> (a%totalscore,b,c)) pscore
     where
         sbs = whatsnext prevshouldbe lastelem ntype
+        pscore = map (\(scount, snextsb) -> (fromIntegral $ scount*ncount, ntype, snextsb)) sbs
+        totalscore :: Integer
+        totalscore = sum $ map (\(x,_,_) -> x) pscore
 
 allstatesv = getAllStates (pwNextState) (PwState [] vowel maxlen)
 allstatesc = getAllStates (pwNextState) (PwState [] consonant maxlen)
@@ -118,3 +122,8 @@ cardinaltype x = product $ map (fromIntegral . length .toelist) x
 
 out :: [(([Int], Integer),Rational)]
 out = sortBy (\((_,c1),p1) ((_,c2),p2) -> compare (p2 * (1%c2)) (p1 * (1%c1))) $ Map.toList $ Map.fromListWith (+) $ map (\(st, proba) -> ((stypes st, cardinaltype (stypes st)),proba)) $ finalStateProbability allstates
+
+displayPwState :: PwState -> Doc
+displayPwState (PwState tps sshouldbe _) = (parens ((text $ show tps) <+> int sshouldbe))
+
+displayed = showProbaTree (displayPwState) allstates
