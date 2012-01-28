@@ -84,10 +84,13 @@ whatsnext shouldbe prev flags   | shouldbe == consonant = [(1, vowel)]
                                 | (prev .&. vowel /= 0) || (flags .&. diphthong /= 0) = [(1, consonant)]
                                 | otherwise = [(6, consonant), (4, vowel)]
 
+data NextDec = NextType | NextShould | Dummy deriving (Show,Eq,Ord)
+
 data PwState = PwState {
     stypes :: [Int],
     sshouldbe :: Int,
-    smaxlen :: Int
+    smaxlen :: Int,
+    nextdecision :: NextDec
 } deriving (Show,Eq,Ord)
 
 
@@ -95,27 +98,24 @@ stypelen :: [Int] -> Int
 stypelen n = sum $ map (\flags -> 1 + (flags .&. diphthong) `div` diphthong ) n
 
 pwNextState :: PwState -> [(PwState,Rational)]
-pwNextState pws = newlist
+pwNextState pws     | nextdecision pws == NextType = map (\(ntype, ncount) -> (PwState ((stypes pws) ++ [ntype]) (sshouldbe pws) (smaxlen pws) NextShould, (fromIntegral ncount) % (fromIntegral ntotal))) ns
+                    | nextdecision pws == NextShould = map (\(ncount, nnsb) -> (PwState (stypes pws) nnsb (smaxlen pws) NextType, (fromIntegral ncount) % (fromIntegral stotal))) sbs
+                    | otherwise = []
     where
         lastelem    | (length $ stypes pws) > 0 = last $ stypes pws
                     | otherwise = 0
+        prelastelem | (length $ stypes pws) > 1 = last $ init $ stypes pws
+                    | otherwise = 0
         ns = Map.toList $ nextstate (stypelen $ stypes pws) (sshouldbe pws) lastelem (smaxlen pws)
-        shouldbes = concatMap (sb2ns (sshouldbe pws) lastelem) ns
-        allpos = sum $ map (\(x,_,_) -> x) shouldbes
-        newlist = map (\(ncnt, ntype, snextsb) -> (PwState ((stypes pws) ++ [ntype]) snextsb (smaxlen pws), ncnt / allpos)) shouldbes
+        ntotal = sum $ map (snd) ns
 
-sb2ns :: Int -> Int -> (Int,Int) -> [(Rational, Int, Int)]
-sb2ns prevshouldbe lastelem (ntype, ncount) = map (\(a,b,c) -> (a%totalscore,b,c)) pscore
-    where
-        sbs = whatsnext prevshouldbe lastelem ntype
-        pscore = map (\(scount, snextsb) -> (fromIntegral $ scount*ncount, ntype, snextsb)) sbs
-        totalscore :: Integer
-        totalscore = sum $ map (\(x,_,_) -> x) pscore
+        sbs = whatsnext (sshouldbe pws) prelastelem lastelem
+        stotal = sum $ map (fst) sbs
 
-allstatesv = getAllStates (pwNextState) (PwState [] vowel maxlen)
-allstatesc = getAllStates (pwNextState) (PwState [] consonant maxlen)
+allstatesv = getAllStates (pwNextState) (PwState [] vowel maxlen NextType)
+allstatesc = getAllStates (pwNextState) (PwState [] consonant maxlen NextType)
 
-allstates = ProbaTree (PwState [] 0 0) [(allstatesv, 1%2),(allstatesc, 1%2)]
+allstates = ProbaTree (PwState [] 0 0 Dummy) [(allstatesv, 1%2),(allstatesc, 1%2)]
 
 cardinaltype :: [Int] -> Integer
 cardinaltype x = product $ map (fromIntegral . length .toelist) x
@@ -124,6 +124,9 @@ out :: [(([Int], Integer),Rational)]
 out = sortBy (\((_,c1),p1) ((_,c2),p2) -> compare (p2 * (1%c2)) (p1 * (1%c1))) $ Map.toList $ Map.fromListWith (+) $ map (\(st, proba) -> ((stypes st, cardinaltype (stypes st)),proba)) $ finalStateProbability allstates
 
 displayPwState :: PwState -> Doc
-displayPwState (PwState tps sshouldbe _) = (parens ((text $ show tps) <+> int sshouldbe))
+displayPwState (PwState tps _ _ NextShould) = text $ show tps
+displayPwState (PwState _ 1 _ NextType) = text "v"
+displayPwState (PwState _ 2 _ NextType) = text "c"
+displayPwState (PwState _ _ _ Dummy) = text "*"
 
 displayed = showProbaTree (displayPwState) allstates
