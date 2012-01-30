@@ -28,3 +28,6 @@ finalStateProbability tree  | length (outcome tree) == 0 = [(curstate tree, 1%1)
 showProbaTree :: (cst -> Doc) -> ProbaTree cst -> Doc
 showProbaTree showstate tree = (showstate $ curstate tree) $$ (vcat $ map (\x -> (text $ show $ snd x) <+> (showProbaTree (showstate) $ fst x)) (outcome tree))
 
+nbPTNodes :: ProbaTree cst -> Integer
+nbPTNodes tree = 1 + (sum $ map (nbPTNodes.fst) (outcome tree))
+
