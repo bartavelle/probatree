@@ -1,2 +1,2 @@
-Minimal library for computing final probabilities from probabilistic decision trees.
+Minimal library for building probabilistic decision trees and computing their final states probabilities.
 
